@@ -6,10 +6,20 @@ import json
 from functools import wraps
 import os
 
+# Import the configuration settings
+from config import config
+
 app = Flask(__name__)
+
+# Load configuration (defaults to 'development')
+# You can change this to 'production' in config.py or via env vars later
+app.config.from_object(config['development'])
+
 CORS(app)
 
-DB_PATH = 'agriculture.db'
+# Use the database path from the config file
+# We replace 'sqlite:///' to get the actual file path for sqlite3 module
+DB_PATH = app.config.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///agriculture.db').replace('sqlite:///', '')
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -71,31 +81,33 @@ def seed_initial_data():
         c.execute('SELECT id FROM fields')
         field_ids = [row[0] for row in c.fetchall()]
         
-        npk_data = [
-            (field_ids[0], 68, 45, 72),
-            (field_ids[1], 55, 35, 60),
-            (field_ids[2], 70, 50, 75),
-            (field_ids[3], 75, 55, 80)
-        ]
-        
-        for npk in npk_data:
+        # Ensure we have fields before seeding related data
+        if field_ids:
+            npk_data = [
+                (field_ids[0], 68, 45, 72),
+                (field_ids[1], 55, 35, 60),
+                (field_ids[2], 70, 50, 75),
+                (field_ids[3], 75, 55, 80)
+            ]
+            
+            for npk in npk_data:
+                try:
+                    c.execute('INSERT INTO npk_levels (field_id, nitrogen, phosphorus, potassium, recorded_at) VALUES (?, ?, ?, ?, ?)',
+                             (*npk, datetime.now()))
+                except:
+                    pass
+            
             try:
-                c.execute('INSERT INTO npk_levels (field_id, nitrogen, phosphorus, potassium, recorded_at) VALUES (?, ?, ?, ?, ?)',
-                         (*npk, datetime.now()))
+                c.execute('INSERT INTO alerts (field_id, alert_type, message, recommendation, priority, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                         (field_ids[1], 'Nutrient Deficiency', 'Low Phosphorus in Field B', 'Apply phosphate fertilizer within 3 days', 'High', datetime.now()))
             except:
                 pass
-        
-        try:
-            c.execute('INSERT INTO alerts (field_id, alert_type, message, recommendation, priority, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-                     (field_ids[1], 'Nutrient Deficiency', 'Low Phosphorus in Field B', 'Apply phosphate fertilizer within 3 days', 'High', datetime.now()))
-        except:
-            pass
-        
-        try:
-            c.execute('INSERT INTO alerts (field_id, alert_type, message, recommendation, priority, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-                     (field_ids[0], 'Irrigation Scheduled', 'Irrigation Scheduled for Field A', 'Next irrigation: Today at 6:00 PM (2 hours remaining)', 'Medium', datetime.now()))
-        except:
-            pass
+            
+            try:
+                c.execute('INSERT INTO alerts (field_id, alert_type, message, recommendation, priority, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                         (field_ids[0], 'Irrigation Scheduled', 'Irrigation Scheduled for Field A', 'Next irrigation: Today at 6:00 PM (2 hours remaining)', 'Medium', datetime.now()))
+            except:
+                pass
         
         weather_data = [
             (datetime.now().date(), 'Clear', 20, 28, 65, 0),
@@ -118,6 +130,7 @@ def seed_initial_data():
     finally:
         conn.close()
 
+# Initialize DB on startup
 init_db()
 seed_initial_data()
 
@@ -279,6 +292,7 @@ def get_crop_yield_forecast():
         for field in fields:
             for i in range(7):
                 forecast_date = datetime.now().date() + timedelta(days=i)
+                # Note: This is a simulated prediction formula
                 predicted_yield = 500 + (i * 20) + (field['id'] * 50)
                 c.execute('INSERT INTO crop_yield_forecast (field_id, forecast_date, predicted_yield, created_at) VALUES (?, ?, ?, ?)',
                          (field['id'], forecast_date, predicted_yield, datetime.now()))
@@ -530,4 +544,9 @@ def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use configuration settings for host, port and debug mode
+    app.run(
+        debug=app.config['DEBUG'], 
+        host='0.0.0.0', 
+        port=5000
+    )

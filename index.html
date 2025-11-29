@@ -692,7 +692,7 @@
                 weather.forEach(day => {
                     container.innerHTML += `
                         <div class="weather-day">
-                            <div class="weather-date">${new Date(day.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
+                            <div class="weather-date">${new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
                             <div class="weather-condition">${day.condition}</div>
                             <div class="weather-temp">${day.min_temp}°C - ${day.max_temp}°C</div>
                             <div class="weather-condition">Humidity: ${day.humidity}%</div>
