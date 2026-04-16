@@ -392,6 +392,28 @@
             color: white;
         }
 
+        .inline-message {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .inline-message.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.15);
+            color: #7f1d1d;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+
+        .inline-message.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.15);
+            color: #065f46;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
         .spinner {
             border: 4px solid rgba(255,255,255,0.3);
             border-radius: 50%;
@@ -445,6 +467,7 @@
         </header>
 
         <div class="section-title">Dashboard Metrics</div>
+        <div class="inline-message" id="globalMessage"></div>
         <div class="dashboard">
             <div class="card">
                 <div class="card-header">
@@ -505,7 +528,8 @@
                     <input type="number" id="waterVolume" value="500" min="100" max="5000">
                 </div>
             </div>
-            <button class="btn" onclick="startIrrigation()">Start Irrigation</button>
+            <button class="btn" id="startIrrigationBtn">Start Irrigation</button>
+            <div class="inline-message" id="irrigationMessage"></div>
         </div>
 
         <div class="section-title">Weekly Crop Yield Forecast (kg/hectare)</div>
@@ -528,229 +552,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const API_BASE = 'http://localhost:5000/api';
-        let yieldChart = null;
-
-        async function fetchDashboard() {
-            try {
-                const response = await fetch(`${API_BASE}/dashboard`);
-                const data = await response.json();
-                
-                document.getElementById('soilMoisture').textContent = data.soil_moisture + '%';
-                document.getElementById('temperature').textContent = data.temperature + '°C';
-                document.getElementById('npkLevels').textContent = `N:${data.npk_levels.n} P:${data.npk_levels.p} K:${data.npk_levels.k}`;
-                document.getElementById('cropHealth').textContent = data.crop_health + '%';
-            } catch (error) {
-                console.error('Error fetching dashboard:', error);
-            }
-        }
-
-        async function fetchFields() {
-            try {
-                const response = await fetch(`${API_BASE}/fields`);
-                const fields = await response.json();
-                
-                const fieldSelect = document.getElementById('fieldSelect');
-                const fieldsGrid = document.getElementById('fieldsGrid');
-                
-                fieldsGrid.innerHTML = '';
-                fieldSelect.innerHTML = '<option value="">Choose a field...</option>';
-                
-                fields.forEach(field => {
-                    fieldSelect.innerHTML += `<option value="${field.id}">${field.name}</option>`;
-                    
-                    const statusClass = field.status === 'Healthy' || field.status === 'Excellent' || field.status === 'Optimal' 
-                        ? 'status-optimal' 
-                        : field.status === 'Needs Water' 
-                        ? 'status-warning' 
-                        : 'status-normal';
-                    
-                    fieldsGrid.innerHTML += `
-                        <div class="field-card">
-                            <div class="field-name">${field.name}</div>
-                            <div class="field-info">
-                                <span class="field-info-label">📏 Area:</span>
-                                <span>${field.area} hectares</span>
-                            </div>
-                            <div class="field-info">
-                                <span class="field-info-label">💧 Moisture:</span>
-                                <span>${field.moisture}%</span>
-                            </div>
-                            <div class="field-info">
-                                <span class="field-info-label">🌡️ Temp:</span>
-                                <span>${field.temperature}°C</span>
-                            </div>
-                            <div class="status-badge ${statusClass}" style="margin-top: 10px;">${field.status}</div>
-                        </div>
-                    `;
-                });
-            } catch (error) {
-                console.error('Error fetching fields:', error);
-            }
-        }
-
-        async function fetchCropYieldForecast() {
-            try {
-                const response = await fetch(`${API_BASE}/crop-yield-forecast`);
-                const data = await response.json();
-                
-                const labels = [];
-                const datasets = [];
-                const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c'];
-                
-                let colorIndex = 0;
-                for (const [field, forecast] of Object.entries(data)) {
-                    if (labels.length === 0) {
-                        labels.push(...forecast.dates);
-                    }
-                    
-                    datasets.push({
-                        label: field,
-                        data: forecast.yields,
-                        borderColor: colors[colorIndex % colors.length],
-                        backgroundColor: colors[colorIndex % colors.length] + '20',
-                        tension: 0.4,
-                        fill: true
-                    });
-                    
-                    colorIndex++;
-                }
-                
-                const ctx = document.getElementById('yieldChart').getContext('2d');
-                
-                if (yieldChart) {
-                    yieldChart.destroy();
-                }
-                
-                yieldChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Yield (kg/hectare)'
-                                }
-                            }
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error('Error fetching crop yield forecast:', error);
-            }
-        }
-
-        async function fetchAlerts() {
-            try {
-                const response = await fetch(`${API_BASE}/alerts`);
-                const alerts = await response.json();
-                
-                const container = document.getElementById('alertsContainer');
-                
-                if (alerts.length === 0) {
-                    container.innerHTML = '<div class="alert-item low"><div class="alert-message">✓ All systems normal</div></div>';
-                    return;
-                }
-                
-                container.innerHTML = '';
-                alerts.forEach(alert => {
-                    const priorityClass = alert.priority.toLowerCase();
-                    container.innerHTML += `
-                        <div class="alert-item ${priorityClass}">
-                            <div class="alert-message">⚠️ ${alert.message}</div>
-                            <div class="alert-recommendation">Recommended: ${alert.recommendation}</div>
-                        </div>
-                    `;
-                });
-            } catch (error) {
-                console.error('Error fetching alerts:', error);
-            }
-        }
-
-        async function fetchWeather() {
-            try {
-                const response = await fetch(`${API_BASE}/weather`);
-                const weather = await response.json();
-                
-                const container = document.getElementById('weatherForecast');
-                container.innerHTML = '';
-                
-                weather.forEach(day => {
-                    container.innerHTML += `
-                        <div class="weather-day">
-                            <div class="weather-date">${new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
-                            <div class="weather-condition">${day.condition}</div>
-                            <div class="weather-temp">${day.min_temp}°C - ${day.max_temp}°C</div>
-                            <div class="weather-condition">Humidity: ${day.humidity}%</div>
-                        </div>
-                    `;
-                });
-            } catch (error) {
-                console.error('Error fetching weather:', error);
-            }
-        }
-
-        async function startIrrigation() {
-            const fieldId = document.getElementById('fieldSelect').value;
-            const duration = parseInt(document.getElementById('irrigationDuration').value);
-            const waterVolume = parseFloat(document.getElementById('waterVolume').value);
-            
-            if (!fieldId) {
-                alert('Please select a field');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE}/irrigation/start`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        field_id: parseInt(fieldId),
-                        duration: duration,
-                        water_volume: waterVolume
-                    })
-                });
-                
-                const result = await response.json();
-                alert(`Irrigation started! Scheduled for ${new Date(result.scheduled_time).toLocaleTimeString()}`);
-                
-                fetchDashboard();
-                fetchFields();
-                fetchAlerts();
-            } catch (error) {
-                console.error('Error starting irrigation:', error);
-                alert('Error starting irrigation');
-            }
-        }
-
-        function initializePage() {
-            fetchDashboard();
-            fetchFields();
-            fetchCropYieldForecast();
-            fetchAlerts();
-            fetchWeather();
-            
-            setInterval(fetchDashboard, 30000);
-            setInterval(fetchAlerts, 30000);
-        }
-
-        window.addEventListener('load', initializePage);
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>

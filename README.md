@@ -269,6 +269,10 @@ DEBUG=True
 SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///agriculture.db
 CORS_ORIGINS=*
+DB_POOL_SIZE=5
+DB_CONNECTION_TIMEOUT=5
+API_DEFAULT_PAGE_SIZE=10
+API_MAX_PAGE_SIZE=100
 ```
 
 ### Configuration File
