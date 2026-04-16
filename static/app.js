@@ -187,7 +187,7 @@ async function fetchWeather() {
         const weather = await apiRequest('/weather');
         container.innerHTML = '';
         weather.forEach((day) => {
-            const weatherDate = new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const weatherDate = new Date(`${day.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             container.insertAdjacentHTML('beforeend', `
                 <div class="weather-day">
                     <div class="weather-date">${escapeHtml(weatherDate)}</div>

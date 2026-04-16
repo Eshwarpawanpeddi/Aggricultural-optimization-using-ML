@@ -471,6 +471,7 @@ def start_irrigation():
 
     ensure_field_exists(field_id)
     scheduled_time = datetime.now() + timedelta(minutes=2)
+    moisture_increase = min(water_volume / 100, 15)
 
     with db_cursor(commit=True) as cursor:
         cursor.execute(
@@ -479,7 +480,7 @@ def start_irrigation():
         )
         cursor.execute(
             'UPDATE fields SET soil_moisture = CASE WHEN soil_moisture + ? > 100 THEN 100 ELSE soil_moisture + ? END WHERE id = ?',
-            (min(water_volume / 100, 15), min(water_volume / 100, 15), field_id)
+            (moisture_increase, moisture_increase, field_id)
         )
 
     return jsonify({
