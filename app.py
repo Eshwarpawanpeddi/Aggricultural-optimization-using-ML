@@ -759,22 +759,23 @@ def update_field():
     field_id = data['field_id']
     ensure_field_exists(field_id)
 
-    update_fields = []
-    update_values = []
-    allowed_update_fields = {'soil_moisture', 'temperature', 'health_status'}
-    for key in ('soil_moisture', 'temperature', 'health_status'):
-        if key in data:
-            if key not in allowed_update_fields:
-                raise APIError('Invalid update field', 400, 'VALIDATION_ERROR')
-            update_fields.append(f'{key} = ?')
-            update_values.append(data[key])
+    soil_moisture = data.get('soil_moisture')
+    temperature = data.get('temperature')
+    health_status = data.get('health_status')
 
-    if not update_fields:
+    if soil_moisture is None and temperature is None and health_status is None:
         raise APIError('At least one field value must be provided', 400, 'VALIDATION_ERROR')
 
-    update_values.append(field_id)
-    query = f'UPDATE fields SET {", ".join(update_fields)} WHERE id = ?'
-    execute_write(query, tuple(update_values))
+    execute_write(
+        '''
+        UPDATE fields
+        SET soil_moisture = COALESCE(?, soil_moisture),
+            temperature = COALESCE(?, temperature),
+            health_status = COALESCE(?, health_status)
+        WHERE id = ?
+        ''',
+        (soil_moisture, temperature, health_status, field_id)
+    )
 
     return jsonify({'status': 'success', 'message': 'Field updated'})
 

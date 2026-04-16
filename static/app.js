@@ -1,6 +1,20 @@
 const API_BASE = `${window.location.origin}/api`;
 let yieldChart = null;
 
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function normalizePriorityClass(priority) {
+    const normalized = String(priority || '').toLowerCase();
+    return ['high', 'medium', 'low'].includes(normalized) ? normalized : 'low';
+}
+
 function showMessage(elementId, message, type = 'error') {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -66,23 +80,23 @@ async function fetchFields() {
         fieldsGrid.innerHTML = '';
 
         fields.forEach((field) => {
-            fieldSelect.insertAdjacentHTML('beforeend', `<option value="${field.id}">${field.name}</option>`);
+            fieldSelect.insertAdjacentHTML('beforeend', `<option value="${field.id}">${escapeHtml(field.name)}</option>`);
             fieldsGrid.insertAdjacentHTML('beforeend', `
                 <div class="field-card">
-                    <div class="field-name">${field.name}</div>
+                    <div class="field-name">${escapeHtml(field.name)}</div>
                     <div class="field-info">
                         <span class="field-info-label">📏 Area:</span>
-                        <span>${field.area} hectares</span>
+                        <span>${escapeHtml(field.area)} hectares</span>
                     </div>
                     <div class="field-info">
                         <span class="field-info-label">💧 Moisture:</span>
-                        <span>${field.moisture}%</span>
+                        <span>${escapeHtml(field.moisture)}%</span>
                     </div>
                     <div class="field-info">
                         <span class="field-info-label">🌡️ Temp:</span>
-                        <span>${field.temperature}°C</span>
+                        <span>${escapeHtml(field.temperature)}°C</span>
                     </div>
-                    <div class="status-badge ${statusClassForField(field.status)}" style="margin-top: 10px;">${field.status}</div>
+                    <div class="status-badge ${statusClassForField(field.status)}" style="margin-top: 10px;">${escapeHtml(field.status)}</div>
                 </div>
             `);
         });
@@ -154,9 +168,9 @@ async function fetchAlerts() {
         container.innerHTML = '';
         alerts.forEach((alert) => {
             container.insertAdjacentHTML('beforeend', `
-                <div class="alert-item ${alert.priority.toLowerCase()}">
-                    <div class="alert-message">⚠️ ${alert.message}</div>
-                    <div class="alert-recommendation">Recommended: ${alert.recommendation}</div>
+                <div class="alert-item ${normalizePriorityClass(alert.priority)}">
+                    <div class="alert-message">⚠️ ${escapeHtml(alert.message)}</div>
+                    <div class="alert-recommendation">Recommended: ${escapeHtml(alert.recommendation)}</div>
                 </div>
             `);
         });
@@ -173,12 +187,13 @@ async function fetchWeather() {
         const weather = await apiRequest('/weather');
         container.innerHTML = '';
         weather.forEach((day) => {
+            const weatherDate = new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             container.insertAdjacentHTML('beforeend', `
                 <div class="weather-day">
-                    <div class="weather-date">${new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                    <div class="weather-condition">${day.condition}</div>
-                    <div class="weather-temp">${day.min_temp}°C - ${day.max_temp}°C</div>
-                    <div class="weather-condition">Humidity: ${day.humidity}%</div>
+                    <div class="weather-date">${escapeHtml(weatherDate)}</div>
+                    <div class="weather-condition">${escapeHtml(day.condition)}</div>
+                    <div class="weather-temp">${escapeHtml(day.min_temp)}°C - ${escapeHtml(day.max_temp)}°C</div>
+                    <div class="weather-condition">Humidity: ${escapeHtml(day.humidity)}%</div>
                 </div>
             `);
         });
