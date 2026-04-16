@@ -24,6 +24,16 @@ class ApiTestCase(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload['error']['code'], 'VALIDATION_ERROR')
 
+    def test_irrigation_success_returns_201(self):
+        response = self.client.post('/api/irrigation/start', json={
+            'field_id': 1,
+            'duration': 30,
+            'water_volume': 500
+        })
+        self.assertEqual(response.status_code, 201)
+        payload = response.get_json()
+        self.assertEqual(payload['status'], 'success')
+
     def test_fields_pagination(self):
         response = self.client.get('/api/fields?page=1&per_page=2')
         self.assertEqual(response.status_code, 200)

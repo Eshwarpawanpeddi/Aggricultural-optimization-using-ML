@@ -175,7 +175,7 @@ async function fetchWeather() {
         weather.forEach((day) => {
             container.insertAdjacentHTML('beforeend', `
                 <div class="weather-day">
-                    <div class="weather-date">${new Date(`${day.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                    <div class="weather-date">${new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                     <div class="weather-condition">${day.condition}</div>
                     <div class="weather-temp">${day.min_temp}°C - ${day.max_temp}°C</div>
                     <div class="weather-condition">Humidity: ${day.humidity}%</div>
@@ -190,6 +190,9 @@ async function fetchWeather() {
 
 function validateIrrigationInput(fieldId, duration, waterVolume) {
     if (!fieldId) return 'Please select a field';
+    if (Number.isNaN(duration) || Number.isNaN(waterVolume)) {
+        return 'Duration and water volume must be valid numbers';
+    }
     if (!Number.isInteger(duration) || duration < 5 || duration > 120) {
         return 'Duration must be an integer between 5 and 120 minutes';
     }

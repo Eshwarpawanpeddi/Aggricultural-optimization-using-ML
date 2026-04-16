@@ -189,7 +189,7 @@ def validate_payload(schema):
                 elif expected_type == 'date':
                     value = parse_date(value, field)
                 else:
-                    raise APIError(f'Unsupported validation rule for {field}', 500, 'SERVER_CONFIG_ERROR')
+                    raise APIError('Internal configuration error', 500, 'SERVER_CONFIG_ERROR')
 
                 allowed = rules.get('allowed')
                 if allowed and value not in allowed:
@@ -478,8 +478,8 @@ def start_irrigation():
             (field_id, duration, water_volume, scheduled_time, 'Scheduled', datetime.now())
         )
         cursor.execute(
-            'UPDATE fields SET soil_moisture = MIN(100, soil_moisture + ?) WHERE id = ?',
-            (min(water_volume / 100, 15), field_id)
+            'UPDATE fields SET soil_moisture = CASE WHEN soil_moisture + ? > 100 THEN 100 ELSE soil_moisture + ? END WHERE id = ?',
+            (min(water_volume / 100, 15), min(water_volume / 100, 15), field_id)
         )
 
     return jsonify({
@@ -575,20 +575,25 @@ def get_crop_yield_forecast():
 def get_alerts():
     pagination = get_pagination_params(default_per_page=10)
 
-    base_query = '''
+    total_query = '''
+        SELECT COUNT(*) AS total
         FROM alerts a
         JOIN fields f ON a.field_id = f.id
         WHERE a.resolved = 0
     '''
+    list_query = '''
+        SELECT a.id, a.field_id, f.name, a.alert_type, a.message, a.recommendation, a.priority, a.created_at
+        FROM alerts a
+        JOIN fields f ON a.field_id = f.id
+        WHERE a.resolved = 0
+        ORDER BY a.priority DESC, a.created_at DESC
+    '''
 
     if pagination:
         page, per_page, offset = pagination
-        total_row = fetch_one(f'SELECT COUNT(*) AS total {base_query}')
+        total_row = fetch_one(total_query)
         alerts = fetch_all(
-            f'''SELECT a.id, a.field_id, f.name, a.alert_type, a.message, a.recommendation, a.priority, a.created_at
-                {base_query}
-                ORDER BY a.priority DESC, a.created_at DESC
-                LIMIT ? OFFSET ?''',
+            list_query + ' LIMIT ? OFFSET ?',
             (per_page, offset)
         )
         data = [{
@@ -603,11 +608,7 @@ def get_alerts():
         } for alert in alerts]
         return jsonify(paginated_response(data, total_row['total'], page, per_page))
 
-    alerts = fetch_all(
-        f'''SELECT a.id, a.field_id, f.name, a.alert_type, a.message, a.recommendation, a.priority, a.created_at
-            {base_query}
-            ORDER BY a.priority DESC, a.created_at DESC'''
-    )
+    alerts = fetch_all(list_query)
 
     return jsonify([{
         'id': alert['id'],
@@ -760,8 +761,11 @@ def update_field():
 
     update_fields = []
     update_values = []
+    allowed_update_fields = {'soil_moisture', 'temperature', 'health_status'}
     for key in ('soil_moisture', 'temperature', 'health_status'):
         if key in data:
+            if key not in allowed_update_fields:
+                raise APIError('Invalid update field', 400, 'VALIDATION_ERROR')
             update_fields.append(f'{key} = ?')
             update_values.append(data[key])
 
