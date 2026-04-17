@@ -17,6 +17,10 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 5))
+    DB_CONNECTION_TIMEOUT = float(os.environ.get('DB_CONNECTION_TIMEOUT', 5.0))
+    API_DEFAULT_PAGE_SIZE = int(os.environ.get('API_DEFAULT_PAGE_SIZE', 10))
+    API_MAX_PAGE_SIZE = int(os.environ.get('API_MAX_PAGE_SIZE', 100))
     
     IRRIGATION_UPDATE_INTERVAL = 30000
     ALERT_CHECK_INTERVAL = 30000
